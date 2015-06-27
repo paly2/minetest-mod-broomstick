@@ -4,22 +4,45 @@ local broomstick_actual_users = {}
 local had_fly_privilege = {}
 local privs = {}
 
--- Remove fly to old users of broomstick
-users_file = io.open(minetest.get_modpath(minetest.get_current_modname()).."/broomstick_users.txt", "r")
-if users_file then
-	local string = users_file:read()
-	if string ~= nil then
-		broomstick_actual_users = minetest.deserialize(string)
-		for _, i in ipairs(broomstick_actual_users) do
-			privs = minetest.get_player_privs(i.name)
-			privs.fly = nil
-			minetest.set_player_privs(i.name, privs)
-		end
+-- broomstick file
+users_file = minetest.get_worldpath() .. "/broomstick_users.txt"
+--load broomstick  file 
+local file = io.open(users_file, "r")
+if file then
+	had_fly_privilege = minetest.deserialize(file:read("*all"))
+	file:close()
+	file = nil
+	if not had_fly_privilege or type(had_fly_privilege) ~= "table" then
+		had_fly_privilege = {}
 	end
-	io.close(users_file)
 else
 	minetest.log("error", "[broomstick] Can not open broomstick_users.txt file !")
 end
+
+
+-- funtion save broomstick  file
+local function save()
+	local input = io.open(users_file, "w")
+	if input then
+		input:write(minetest.serialize(had_fly_privilege))
+		input:close()
+	else
+		minetest.log("error","[broomstick] Open failed (mode:w) of " .. users_file)
+	end
+end
+
+-- on join_player remove priv fly
+minetest.register_on_joinplayer(function(player)
+	local playername = player:get_player_name()
+	if had_fly_privilege[playername] ~= nil then
+		privs = minetest.get_player_privs(playername)
+		privs.fly = nil
+		minetest.set_player_privs(playername, privs)
+		had_fly_privilege[playername] = nil
+		save()
+	end
+end)
+
 
 -- Register broomstick
 minetest.register_craftitem("broomstick:broomstick", {
@@ -39,6 +62,9 @@ minetest.register_craftitem("broomstick:broomstick", {
 				privs = minetest.get_player_privs(playername)
 				-- Set player privs...
 				if not privs.fly == true then
+					-- Rewrite the broomstick_users.txt file.
+					had_fly_privilege[playername] = true
+					save()
 					privs.fly = true
 					minetest.set_player_privs(playername, privs)
 				else
@@ -56,12 +82,6 @@ minetest.register_craftitem("broomstick:broomstick", {
 					time = 0,
 					is_warning_said = false
 				})
-				-- Rewrite the broomstick_users.txt file.
-				users_file = io.open(minetest.get_modpath(minetest.get_current_modname()).."/broomstick_users.txt", "w")
-				if users_file then
-					users_file:write(minetest.serialize(broomstick_actual_users))
-					io.close(users_file)
-				end
 				-- Remove broomstick.
 				return ItemStack("")
 			else
@@ -91,11 +111,8 @@ minetest.register_globalstep(function(dtime)
 			-- Remove the player in the list.
 			table.remove(broomstick_actual_users, index)
 			-- Rewrite the broomstick_users.txt file.
-			users_file = io.open(minetest.get_modpath(minetest.get_current_modname()).."/broomstick_users.txt", "w")
-			if users_file then
-				users_file:write(minetest.serialize(broomstick_actual_users))
-				io.close(users_file)
-			end
+			had_fly_privilege[i.name] = nil
+			save()
 		end
 	end
 end)
