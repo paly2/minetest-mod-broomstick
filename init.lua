@@ -1,4 +1,4 @@
-local broomstick_time = 120 -- Seconds (for default 2 minutes)
+local broomstick_time = 15 -- Seconds (for default 2 minutes)
 local broomstick_mana = 50
 local broomstick_actual_users = {}
 local had_fly_privilege = {}
@@ -43,6 +43,27 @@ minetest.register_on_joinplayer(function(player)
 	end
 end)
 
+-- Broomstick timer
+local function say_warning(playername)
+	minetest.chat_send_player(playername, "WARNING ! You'll fall in 10 seconds !")
+	minetest.after(10, function(playername)
+		-- Send a message...
+		minetest.chat_send_player(playername, "End of broomstick. I hope you're not falling down...")
+		-- Set player privs...
+		privs = minetest.get_player_privs(playername)
+		privs["fly"] = nil
+		minetest.set_player_privs(playername, privs)
+		-- Remove the player in the list.
+		for i = 1, #broomstick_actual_users do
+			if broomstick_actual_users[i] == playername then
+				table.remove(broomstick_actual_users, i)
+			end
+		end
+		-- Rewrite the broomstick_users.txt file.
+		had_fly_privilege[playername] = nil
+		save()
+	end, playername)
+end
 
 -- Register broomstick
 minetest.register_craftitem("broomstick:broomstick", {
@@ -90,30 +111,6 @@ minetest.register_craftitem("broomstick:broomstick", {
 		end
 	end,
 })
-
--- Broomstick timer
-local function say_warning(playername)
-	minetest.chat_send_player(playername, "WARNING ! You'll fall in 10 seconds !")
-	minetest.after(10, end_broomstick, playername)
-end
-
-local function end_broomstick(playername)
-	-- Send a message...
-	minetest.chat_send_player(playername, "End of broomstick. I hope you're not falling down...")
-	-- Set player privs...
-	privs = minetest.get_player_privs(playername)
-	privs["fly"] = nil
-	minetest.set_player_privs(playername, privs)
-	-- Remove the player in the list.
-	for i = 1, #broomstick_actual_users do
-		if broomstick_actual_users[i] == playername then
-			table.remove(broomstick_actual_users, i)
-		end
-	end
-	-- Rewrite the broomstick_users.txt file.
-	had_fly_privilege[playername] = nil
-	save()
-end
 
 -- Craft
 minetest.register_craft({
